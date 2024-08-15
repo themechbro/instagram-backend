@@ -94,21 +94,51 @@ app.post("/register", async (req, res) => {
 app.post("/login", async (req, res) => {
   const { username, password } = req.body;
 
-  // console.log("Login attempt:", { username, password });
-
   try {
     const user = await User.findOne({ username });
     if (!user) {
       return res.status(400).json({ message: "User not found" });
     }
 
-    user.authenticate(password, (err, result) => {
+    user.authenticate(password, async (err, result) => {
       if (err || !result) {
         return res.status(400).json({ message: "Invalid password" });
       }
+
+      // Capture the user's IP address (in production use req.headers['x-forwarded-for'] to get real IP)
+      const userIP = req.ip;
+
+      // Fetch the location information based on the IP address
+      let locationData = {};
+      try {
+        const locationResponse = await axios.get(
+          `https://ipapi.co/${userIP}/json/`
+        );
+        locationData = locationResponse.data;
+      } catch (error) {
+        console.error("Error fetching location data:", error);
+        // You can choose to continue even if location fetch fails, or handle it differently
+      }
+
+      // Generate JWT token for user
       const token = jwt.sign({ username: user.username }, secret, {
         expiresIn: "1h",
       });
+
+      // Store user and location data in the session (optional)
+      req.session.user = {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+      };
+      req.session.location = {
+        ip: locationData.ip || userIP,
+        city: locationData.city || "Unknown",
+        region: locationData.region || "Unknown",
+        country: locationData.country_name || "Unknown",
+        latitude: locationData.latitude || null,
+        longitude: locationData.longitude || null,
+      };
 
       return res.status(200).json({
         message: "Login successful",
@@ -117,6 +147,14 @@ app.post("/login", async (req, res) => {
           id: user._id,
           username: user.username,
           email: user.email,
+        },
+        location: {
+          ip: req.session.location.ip,
+          city: req.session.location.city,
+          region: req.session.location.region,
+          country: req.session.location.country,
+          latitude: req.session.location.latitude,
+          longitude: req.session.location.longitude,
         },
       });
     });
