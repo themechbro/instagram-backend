@@ -30,13 +30,21 @@ app.use(
   })
 );
 
+//CORS NEW
 app.use(
   cors({
-    origin: "http://localhost:3000",
-    methods: "GET, PUT, PATCH, DELETE, POST, HEAD",
-    credentials: true,
+    origin: "http://localhost:3000", // Frontend domain
+    credentials: true, // Allow credentials (cookies) to be sent
   })
 );
+//CORS OLD
+// app.use(
+//   cors({
+//     origin: "http://localhost:3000",
+//     methods: "GET, PUT, PATCH, DELETE, POST, HEAD",
+//     credentials: true,
+//   })
+// );
 app.use(bodyParser.json());
 
 //mongoose config
@@ -59,6 +67,9 @@ app.use(
     store: MongoStore.create({ mongoUrl: process.env.DB_URL }),
     cookie: {
       maxAge: 1000 * 60 * 60 * 24, // 1 day
+      secure: false, // Set to true if using HTTPS
+      httpOnly: false, // Allow client-side access (optional)
+      sameSite: "lax", // Cross-site cookie sharing settings, could be 'strict' or 'none' based on your requirements
     },
   })
 );
@@ -163,6 +174,16 @@ app.post("/login", async (req, res) => {
   }
 });
 
+app.get("/logout", (req, res) => {
+  req.logout((err) => {
+    if (err) {
+      return res.status(500).json({ message: "Logout failed", error: err });
+    }
+    res.status(200).json({ message: "Logout successful" });
+  });
+});
+
+//MONGO DB DATA FETCH ROUTES
 app.get("/users", async (req, res) => {
   try {
     const users = await User.find({});
@@ -173,14 +194,12 @@ app.get("/users", async (req, res) => {
     res.status(500).send("An error occurred while fetching users.");
   }
 });
-
-app.get("/logout", (req, res) => {
-  req.logout((err) => {
-    if (err) {
-      return res.status(500).json({ message: "Logout failed", error: err });
-    }
-    res.status(200).json({ message: "Logout successful" });
-  });
+app.get("/check-session", (req, res) => {
+  if (req.session && req.session.user) {
+    res.status(200).json({ user: req.session.user });
+  } else {
+    res.status(401).json({ message: "Not authenticated" });
+  }
 });
 
 // app.post("/login", async (req, res) => {
