@@ -3,6 +3,7 @@ const cors = require("cors");
 const mongoose = require("mongoose");
 const bodyParser = require("body-parser");
 const User = require("./db/user");
+const Post = require("./db/post");
 const app = express();
 const port = 3001;
 const session = require("express-session");
@@ -12,10 +13,14 @@ const jwt = require("jsonwebtoken");
 const secret = "jesusisking";
 const MongoStore = require("connect-mongo");
 const helmet = require("helmet");
+const multer = require("multer"); //package used to parse uploaded image
+const { storage } = require("./cloudinary/index");
+const upload = multer({ storage });
 
 if (process.env.NODE_ENV !== "production") {
   require("dotenv").config();
 }
+
 const dbUrl = process.env.DB_URL;
 
 const connectSrcUrls = ["https://res.cloudinary.com/dv5vm4sqh/"];
@@ -37,14 +42,7 @@ app.use(
     credentials: true, // Allow credentials (cookies) to be sent
   })
 );
-//CORS OLD
-// app.use(
-//   cors({
-//     origin: "http://localhost:3000",
-//     methods: "GET, PUT, PATCH, DELETE, POST, HEAD",
-//     credentials: true,
-//   })
-// );
+
 app.use(bodyParser.json());
 
 //mongoose config
@@ -84,11 +82,14 @@ passport.use(User.createStrategy());
 passport.serializeUser(User.serializeUser());
 passport.deserializeUser(User.deserializeUser());
 
-//Routes
+//Routes:-
+
+//Home Route
 app.get("/", (req, res) => {
   res.send("Hello From Server, and MongoDB is connected");
 });
 
+//Register Route
 app.post("/register", async (req, res) => {
   const { email, username, password } = req.body;
   console.log("Received data:", { email, password });
@@ -102,6 +103,7 @@ app.post("/register", async (req, res) => {
   }
 });
 
+//Login Logout Routes
 app.post("/login", async (req, res) => {
   const { username, password } = req.body;
 
@@ -183,6 +185,43 @@ app.get("/logout", (req, res) => {
   });
 });
 
+//inst post routes
+app.post("/upload", upload.single("image"), async (req, res) => {
+  try {
+    const { caption } = req.body;
+    const image = {
+      url: req.file.path, // Cloudinary URL
+      filename: req.file.filename, // Cloudinary filename
+    };
+    const { userId } = req.body;
+
+    const newPost = new Post({
+      image: [image],
+      caption,
+      user: userId,
+    });
+
+    await newPost.save();
+
+    res.status(200).json({
+      message: "Post created successfully",
+      post: newPost,
+    });
+  } catch (error) {
+    console.error("Error uploading post:", error);
+    res.status(500).json({ message: "Failed to upload post" });
+  }
+});
+
+app.get("/posts", async (req, res) => {
+  try {
+    const posts = await Post.find({}).populate("user");
+    res.status(200).json(posts);
+  } catch (error) {
+    console.error("Error fetching posts:", error);
+    res.status(500).json({ message: "Failed to fetch posts" });
+  }
+});
 //MONGO DB DATA FETCH ROUTES
 app.get("/users", async (req, res) => {
   try {
@@ -201,37 +240,6 @@ app.get("/check-session", (req, res) => {
     res.status(401).json({ message: "Not authenticated" });
   }
 });
-
-// app.post("/login", async (req, res) => {
-//   const { username, password } = req.body;
-
-//   console.log("Login attempt:", { username, password });
-
-//   try {
-//     const user = await User.findOne({ username });
-//     if (!user) {
-//       return res.status(400).json({ message: "User not found" });
-//     }
-
-//     user.authenticate(password, (err, result) => {
-//       if (err || !result) {
-//         return res.status(400).json({ message: "Invalid password" });
-//       }
-
-//       return res.status(200).json({ message: "Login successful" });
-//     });
-//   } catch (err) {
-//     console.error("Error during login:", err);
-//     return res.status(500).json({ message: "Internal server error" });
-//   }
-// });
-
-// app.post("/login", passport.authenticate("local"), (req, res) => {
-//   console.log("Logged in Successfully", req.user);
-//   res.status(200).json({
-//     message: "Login Successful",
-//   });
-// });
 
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);
