@@ -215,8 +215,8 @@ app.post("/upload", upload.single("image"), async (req, res) => {
 
 app.get("/posts", async (req, res) => {
   try {
-    const posts = await Post.find({}).populate("user");
-    res.status(200).json(posts);
+    const posts = await Post.find({}).sort({ createdAt: -1 }).populate("user");
+    res.json(posts);
   } catch (error) {
     console.error("Error fetching posts:", error);
     res.status(500).json({ message: "Failed to fetch posts" });
@@ -225,14 +225,27 @@ app.get("/posts", async (req, res) => {
 //MONGO DB DATA FETCH ROUTES
 app.get("/users", async (req, res) => {
   try {
-    const users = await User.find({});
-    console.log(users);
-    res.send(users);
+    const { userId, limit = 4, skip = 0 } = req.query; // Default limit to 4 and skip to 0
+    const users = await User.find({ _id: { $ne: userId } })
+      .limit(Number(limit))
+      .skip(Number(skip));
+    res.json(users);
   } catch (error) {
     console.error(error);
     res.status(500).send("An error occurred while fetching users.");
   }
 });
+
+// app.get("/users", async (req, res) => {
+//   try {
+//     const users = await User.find({});
+//     console.log(users);
+//     res.send(users);
+//   } catch (error) {
+//     console.error(error);
+//     res.status(500).send("An error occurred while fetching users.");
+//   }
+// });
 app.get("/check-session", (req, res) => {
   if (req.session && req.session.user) {
     res.status(200).json({ user: req.session.user });

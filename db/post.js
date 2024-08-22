@@ -19,7 +19,8 @@ const postSchema = new Schema(
     caption: String,
     user: { type: Schema.Types.ObjectId, ref: "User" },
   },
-  opts
+  opts,
+  { timestamps: true }
 );
 
 module.exports = mongoose.model("Post", postSchema);
