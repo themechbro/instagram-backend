@@ -4,6 +4,7 @@ const mongoose = require("mongoose");
 const bodyParser = require("body-parser");
 const User = require("./db/user");
 const Post = require("./db/post");
+const Comment = require("./db/comment");
 const app = express();
 const port = 3001;
 const session = require("express-session");
@@ -222,6 +223,43 @@ app.get("/posts", async (req, res) => {
     res.status(500).json({ message: "Failed to fetch posts" });
   }
 });
+
+app.get("/comment/:postId", async (req, res) => {
+  try {
+    const { postId } = req.params;
+    const comments = await Comment.find({ post: postId }).populate(
+      "user",
+      "username"
+    );
+    res.status(200).json(comments);
+  } catch (error) {
+    console.error("Error fetching comments:", error);
+    res
+      .status(500)
+      .json({ message: "Failed to fetch comments", error: error.message });
+  }
+});
+
+app.post("/comment", async (req, res) => {
+  console.log(req.body); // Log the incoming data
+  const { postId, userId, content } = req.body;
+
+  try {
+    const newComment = new Comment({
+      post: postId,
+      user: userId,
+      content,
+    });
+
+    const savedComment = await newComment.save();
+    res.status(201).json(savedComment);
+  } catch (error) {
+    console.error("Error creating comment:", error);
+    res
+      .status(500)
+      .json({ message: "Failed to add comment", error: error.message });
+  }
+});
 //MONGO DB DATA FETCH ROUTES
 app.get("/users", async (req, res) => {
   try {
@@ -236,16 +274,6 @@ app.get("/users", async (req, res) => {
   }
 });
 
-// app.get("/users", async (req, res) => {
-//   try {
-//     const users = await User.find({});
-//     console.log(users);
-//     res.send(users);
-//   } catch (error) {
-//     console.error(error);
-//     res.status(500).send("An error occurred while fetching users.");
-//   }
-// });
 app.get("/check-session", (req, res) => {
   if (req.session && req.session.user) {
     res.status(200).json({ user: req.session.user });
