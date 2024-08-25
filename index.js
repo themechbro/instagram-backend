@@ -5,6 +5,7 @@ const bodyParser = require("body-parser");
 const User = require("./db/user");
 const Post = require("./db/post");
 const Comment = require("./db/comment");
+const Follower = require("./db/followers");
 const app = express();
 const port = 3001;
 const session = require("express-session");
@@ -186,7 +187,7 @@ app.get("/logout", (req, res) => {
   });
 });
 
-//inst post routes
+//inst  routes
 app.post("/upload", upload.single("image"), async (req, res) => {
   try {
     const { caption } = req.body;
@@ -216,14 +217,14 @@ app.post("/upload", upload.single("image"), async (req, res) => {
 
 app.get("/posts", async (req, res) => {
   try {
-    const posts = await Post.find({}).sort({ createdAt: -1 }).populate("user");
+    const posts = await Post.find({}).sort({ _id: -1 }).populate("user");
     res.json(posts);
   } catch (error) {
     console.error("Error fetching posts:", error);
     res.status(500).json({ message: "Failed to fetch posts" });
   }
 });
-
+//Comment routes
 app.get("/comment/:postId", async (req, res) => {
   try {
     const { postId } = req.params;
@@ -260,6 +261,60 @@ app.post("/comment", async (req, res) => {
       .json({ message: "Failed to add comment", error: error.message });
   }
 });
+
+//Follower Routes
+app.post("/:userId/follow", async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const followerId = req.body.followerId;
+
+    // Check if the follower already follows the user
+    const existingFollow = await Follower.findOne({
+      user: userId,
+      follower: followerId,
+    });
+
+    if (existingFollow) {
+      return res.status(400).json({ message: "Already following this user." });
+    }
+
+    // Create a new follow relationship
+    const newFollow = new Follower({
+      user: userId,
+      follower: followerId,
+    });
+
+    await newFollow.save();
+    res.status(200).json({ message: "Successfully followed the user." });
+  } catch (err) {
+    res.status(500).json({ error: "Something went wrong." });
+  }
+});
+
+// Unfollow a user
+app.delete("/:userId/unfollow", async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const followerId = req.body.followerId;
+
+    // Find and delete the follow relationship
+    const deletedFollow = await Follower.findOneAndDelete({
+      user: userId,
+      follower: followerId,
+    });
+
+    if (!deletedFollow) {
+      return res
+        .status(400)
+        .json({ message: "You are not following this user." });
+    }
+
+    res.status(200).json({ message: "Successfully unfollowed the user." });
+  } catch (err) {
+    res.status(500).json({ error: "Something went wrong." });
+  }
+});
+
 //MONGO DB DATA FETCH ROUTES
 app.get("/users", async (req, res) => {
   try {
@@ -282,6 +337,22 @@ app.get("/check-session", (req, res) => {
   }
 });
 
+app.get("/:userId/following", async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    // Find all users that the user is following
+    const following = await Follower.find({ follower: userId }).populate(
+      "user"
+    );
+
+    res.status(200).json(following);
+  } catch (err) {
+    res.status(500).json({ error: "Something went wrong." });
+  }
+});
+
+//Port Route
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);
 });
