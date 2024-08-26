@@ -5,7 +5,7 @@ const Post = require("./db/post");
 async function addLikesFieldToPosts() {
   try {
     await mongoose.connect(
-      "mongodb+srv://themechbro:jKE0L6XtkzzYe6dE@cluster0.dsbmioa.mongodb.net/instagram?retryWrites=true&w=majority",
+      "Dburl",
       {
         useNewUrlParser: true,
         useUnifiedTopology: true,
